@@ -130,6 +130,7 @@ Yudao / RuoYi-Vue-Pro 代码生成（codegen）技能定义仓库。
 关键点：
 
 - 这是“模板驱动渲染”流程，不依赖 `/infra/codegen` API 调用链路
+- 仓库识别采用 `Hard Signals`（必须命中）+ `Soft Signals`（仅辅助）的分层策略，软信号不能替代硬信号
 - 前置检查失败时必须停止，不可“猜着继续生成”
 
 ---

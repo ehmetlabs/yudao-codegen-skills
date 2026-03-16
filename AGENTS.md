@@ -1,6 +1,6 @@
 # AGENTS.md
 > Repository: `yudao-codegen-skills`
-> Last verified: 2026-03-15
+> Last verified: 2026-03-16
 > Audience: Agentic coding assistants operating in this repository
 
 ## 1) Repository scope (what this repo is)
@@ -112,6 +112,7 @@ This repo is doc-centric, but style rules are strict.
 ## 7) Quality gates before completion
 Before finalizing edits, verify:
 - Trigger boundaries are explicit (trigger vs non-trigger)
+- Repository detection uses hard signals as required and soft signals as supporting only
 - Workflow steps are ordered and executable
 - Scenario branches (single/tree/master-sub) are clearly distinguishable
 - Front-type mapping is complete and unchanged unless intentionally updated
