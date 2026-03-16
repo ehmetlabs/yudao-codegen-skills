@@ -375,11 +375,11 @@ Master-sub support caveats:
   - Unit Test: `https://doc.iocoder.cn/unit-test/`
 
 - **Key Source Files**:
-  - Service: `jiedao-cloud-service/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/codegen/CodegenServiceImpl.java`
-  - Builder: `jiedao-cloud-service/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/codegen/inner/CodegenBuilder.java`
-  - Engine: `jiedao-cloud-service/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/codegen/inner/CodegenEngine.java`
-  - Enums: `jiedao-cloud-service/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/enums/codegen/CodegenTemplateTypeEnum.java`, `jiedao-cloud-service/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/enums/codegen/CodegenFrontTypeEnum.java`
-  - Config: `jiedao-cloud-service/yudao-server/src/main/resources/application.yaml` (or `application-dev.yaml`)
+  - Service: `<target-repo>/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/codegen/CodegenServiceImpl.java`
+  - Builder: `<target-repo>/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/codegen/inner/CodegenBuilder.java`
+  - Engine: `<target-repo>/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/codegen/inner/CodegenEngine.java`
+  - Enums: `<target-repo>/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/enums/codegen/CodegenTemplateTypeEnum.java`, `<target-repo>/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/enums/codegen/CodegenFrontTypeEnum.java`
+  - Config: `<target-repo>/yudao-server/src/main/resources/application.yaml` (or `application-dev.yaml`)
 - Supporting UI: `*/src/views/infra/codegen/index.vue`
 
 - **Template Resource Anchors**:

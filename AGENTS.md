@@ -47,7 +47,7 @@ Do not invent behavior beyond these files unless user explicitly requests extens
 
 These commands are inspection-only and do not imply runnable build/lint/test.
 ## 4) About commands for real code repositories
-`SKILL.md` references implementation files in external target repos (e.g., `jiedao-cloud-service/...`), including:
+`SKILL.md` references implementation files in external target repos (e.g., `<target-repo>/...`), including:
 - `CodegenServiceImpl.java`
 - `CodegenBuilder.java`
 - `CodegenEngine.java`
