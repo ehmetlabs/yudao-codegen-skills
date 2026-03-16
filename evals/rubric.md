@@ -37,7 +37,7 @@
 |------|---------|---------|
 | 单表 | 缺少父/子/树字段映射，按普通表处理 | 模板类型 = ONE |
 | 树表 | 基于可配置的 `treeParentColumnId`（树父字段编号）与 `treeNameColumnId`（树名称字段编号）映射确定父节点和显示名称字段，非固定字段名 | 模板类型 = TREE |
-| 主子表 | 识别 `MASTER_*` 主表模板与 `SUB` 子表模板的组合，并确认子表通过 `subJoinColumnId` 等配置建立与主表的关联 | 模板类型 = MASTER_SUB |
+| 主子表 | 识别 `MASTER_NORMAL` / `MASTER_ERP` / `MASTER_INNER` 主表模板与 `SUB` 子表模板的组合，并确认子表通过 `subJoinColumnId` 等配置建立与主表的关联 | 模板类型 = `MASTER_NORMAL`/`MASTER_ERP`/`MASTER_INNER` + `SUB` |
 
 - 通过阈值：上表 3 类场景必须全部判对 `3/3` 才可通过，任一场景缺失或误判均判定为不通过；树表与主子表不得互判。
 - 评分切线：`100 = 3/3`；`0 = <= 2/3` 或出现树表/主子表互判。

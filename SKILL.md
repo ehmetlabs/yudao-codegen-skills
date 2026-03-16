@@ -28,19 +28,24 @@ Trigger this skill when user requests:
 
 ## Repository detection
 
-Presence of these confirms Yudao codegen capability:
+Split repository signals into **Hard Signals** and **Soft Signals**:
 
-1. **Template resources**: `src/main/resources/codegen/` contains Java / SQL / Vue / Vue3 / Vben / Uniapp template families
+### Hard Signals (must hit)
 
-2. **Engine/Builder**: `CodegenEngine.java` and `CodegenBuilder.java`
+1. **Infra module**: `yudao-module-infra` exists (or equivalent infra module layout in ruoyi-vue-pro family variants)
+2. **Template resources**: `src/main/resources/codegen/` contains Java / SQL / Vue / Vue3 / Vben / Uniapp template families
+3. **Engine/Builder**: `CodegenEngine.java` and `CodegenBuilder.java`
    - `CodegenEngine` defines `SERVER_TEMPLATES` and `FRONT_TEMPLATES`
    - `CodegenBuilder` derives `moduleName`, `businessName`, `className`, default `templateType`, and column UI/operation defaults
+4. **Enums**: `CodegenTemplateTypeEnum.java` (ONE, TREE, MASTER_NORMAL, MASTER_ERP, MASTER_INNER, SUB), `CodegenFrontTypeEnum.java` (VUE2_ELEMENT_UI, VUE3_ELEMENT_PLUS, VBEN variants, VUE3_ADMIN_UNIAPP_WOT)
+5. **Config**: `application.yaml` with `yudao.codegen.front-type`, `vo-type`, `delete-batch-enable`, `unit-test-enable`
 
-3. **Enums**: `CodegenTemplateTypeEnum.java` (ONE, TREE, MASTER_NORMAL, MASTER_ERP, MASTER_INNER, SUB), `CodegenFrontTypeEnum.java` (VUE2_ELEMENT_UI, VUE3_ELEMENT_PLUS, VBEN variants, VUE3_ADMIN_UNIAPP_WOT)
+### Soft Signals (supporting only)
 
-4. **Config**: `application.yaml` with `yudao.codegen.front-type`, `vo-type`, `delete-batch-enable`, `unit-test-enable`
+- Optional admin UI/docs such as `*/src/views/infra/codegen/index.vue` and official docs links
+- Frontend README and directory cues used to distinguish ruoyi-vue-pro family variants
 
-5. **Supporting signals only**: optional admin UI/docs such as `*/src/views/infra/codegen/index.vue` and official docs links; these help identify the repo family but are NOT the generation path
+Soft signals can strengthen confidence, but cannot replace missing hard signals.
 
 ## Preflight checklist
 
@@ -50,7 +55,7 @@ Before executing codegen workflow, verify ALL of the following:
 - [ ] **表名** follows naming convention: `moduleName_businessName` (e.g., `system_user`, `bpm_process`)
 - [ ] **表注释** is set and descriptive (required by `validateTableInfo`, generates class comment)
 - [ ] **字段注释** are set for ALL columns (required by `validateTableInfo`, and should exist in the schema input the agent uses)
-- [ ] **主键** is defined (if missing, first field becomes primary key fallback)
+- [ ] **主键** is defined（if missing, first field may be used as fallback PK, but MUST explicitly notify: `将按首字段兜底为主键`）
 
 ### Configuration Checks
 - [ ] **Module name** determined (affects Java package: `cn.iocoder.yudao.module.{moduleName}`)
@@ -58,6 +63,7 @@ Before executing codegen workflow, verify ALL of the following:
 - [ ] **Template type** selected: `ONE(1)`, `TREE(2)`, `MASTER_NORMAL(10)`, `MASTER_ERP(11)`, `MASTER_INNER(12)`, or `SUB(15)`
 - [ ] **Front type** confirmed: defaults to `VUE3_ELEMENT_PLUS(20)` from `yudao.codegen.front-type` in `application.yaml`
 - [ ] **Parent menu ID** set (for UI navigation menu placement)
+- [ ] **Schema delta** checked: if incoming schema and current generation target have no effective delta, reject duplicate regeneration and switch to preview/reuse flow
 
 ### STOP Conditions - 停止生成 - Do NOT proceed if:
 1. **表注释为空** → 停止生成 and add table comment first: `ALTER TABLE xxx COMMENT = '...'`
@@ -74,7 +80,7 @@ The standard template-driven codegen execution flow:
 ```
 [识别仓库信号] → [读取 codegen 模板目录与映射] → [检查 yudao.codegen / front-type] → [执行前置检查]
        ↓
-[收集表结构输入] → [推导默认值] → [选择模板分支] → [渲染模板] → [校验输出路径] → [落盘/整理]
+[收集表结构输入] → [推导默认值] → [选择模板分支] → [预览输出文件集合/路径] → [渲染模板] → [校验输出路径] → [落盘/整理]
 ```
 
 #### Phase 1: Pre-execution Checks
@@ -102,7 +108,7 @@ CodegenBuilder.buildTable(tableInfo)            // Creates CodegenTableDO defaul
 - Module name: extracted from table prefix (e.g., `system_user` → `system`)
 - Business name: extracted from table suffix (e.g., `system_user` → `user`)
 - Class name: CamelCase of business name (e.g., `user` → `User`)
-- Primary key: if not defined, first column becomes PK
+- Primary key: if not defined, first column becomes PK fallback, and MUST explicitly notify user with fallback notice
 - Default template type: `ONE(1)`
 - Default front type: from `codegenProperties.getFrontType()`
 
@@ -127,7 +133,18 @@ buildColumns(tableId, tableFields)
 - If naming convention is too ambiguous to derive stable `moduleName` / `businessName`, stop and ask user
 - If tree/master-sub required fields are missing, stop and correct schema inputs first
 
-#### Phase 4: Render Templates (渲染模板)
+#### Phase 4: Preview Output Set (预览阶段)
+
+Before generation, preview the target output set and paths:
+
+- Enumerate candidate output paths from `CodegenEngine.SERVER_TEMPLATES` / `FRONT_TEMPLATES`
+- Apply selected `templateType` + `frontType` + repo variant (`cloudEnable`) to form preview list
+- Verify output paths belong to detected target repo shape
+- Compare with existing generated targets: if no effective delta, stop duplicate regeneration and return `输入未变化` guidance
+
+If preview is valid, proceed to generation phase.
+
+#### Phase 5: Render Templates and Write Files (生成+落盘)
 
 **Generation engine**: `CodegenEngine.execute()`
 - Uses Velocity templates
@@ -143,9 +160,7 @@ buildColumns(tableId, tableFields)
 - SQL: menu inserts
 - Test: Unit tests (if enabled)
 
-#### Phase 5: Review Output Set and Write Files (落盘/整理)
-
-**Post-generation minimal organization**:
+**Generation/organization steps**:
 1. Review the generated file path → content map
 2. Place Java files in appropriate module structure
 3. Place MyBatis XML mapper files in `src/main/resources/mapper/{businessName}/{ClassName}Mapper.xml` (master-sub: include sub-table mapper XML under its own business directory)
@@ -195,6 +210,17 @@ ALTER TABLE your_table MODIFY COLUMN column_name data_type COMMENT 'Column descr
    - Fix table structure (configure `treeParentColumnId` and `treeNameColumnId` for tree tables, or add the FK for master-sub), OR
    - Change template type to match actual structure (`ONE` for simple tables)
 3. Re-import with corrected settings
+
+#### Branch 5: No Effective Schema Delta (B-05)
+**Detection**: Incoming schema and current generation target have no effective changes (regeneration yields no meaningful file-level diff)
+
+**Action**:
+1. Stop duplicate regeneration
+2. Notify user explicitly: `输入未变化`
+3. Redirect to one of:
+   - Preview current template branch/output paths
+   - Reuse existing generated artifacts
+   - Confirm whether a different template branch/front-type is intended
 
 ### Real Behavior Notes
 
