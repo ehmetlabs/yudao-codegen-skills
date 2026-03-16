@@ -134,9 +134,11 @@ buildColumns(tableId, tableFields)
 - Template selection based on `CodegenTemplateTypeEnum`
 - Frontend template group based on `CodegenFrontTypeEnum`
 - Output path selection from `SERVER_TEMPLATES` / `FRONT_TEMPLATES`
+- Backend mapper XML must be rendered from `codegen/java/dal/mapper.xml.vm` and written under `src/main/resources/mapper/**`
 
 **Files generated**:
 - Java: Controller, Service, ServiceImpl, Mapper, DO, DTO/VO
+- MyBatis XML: Mapper XML generated from `mapper.xml.vm` (at least main table; for master-sub, include sub-table mapper XML to keep CRUD artifacts complete)
 - Vue: views, API, components
 - SQL: menu inserts
 - Test: Unit tests (if enabled)
@@ -146,9 +148,10 @@ buildColumns(tableId, tableFields)
 **Post-generation minimal organization**:
 1. Review the generated file path → content map
 2. Place Java files in appropriate module structure
-3. Place Vue files in your admin frontend project (for example `*/src/views/`)
-4. Keep SQL/menu artifacts aligned with the selected scenario and front type
-5. Avoid writing files that do not belong to the detected repo variant
+3. Place MyBatis XML mapper files in `src/main/resources/mapper/{businessName}/{ClassName}Mapper.xml` (master-sub: include sub-table mapper XML under its own business directory)
+4. Place Vue files in your admin frontend project (for example `*/src/views/`)
+5. Keep SQL/menu artifacts aligned with the selected scenario and front type
+6. Avoid writing files that do not belong to the detected repo variant
 
 ### Failure & Recovery Branches
 
