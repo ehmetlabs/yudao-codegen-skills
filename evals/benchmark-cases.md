@@ -18,6 +18,7 @@
 | P-06 | "在 ruoyi-vue-pro 项目里先看 codegen 模板会生成哪些文件，再决定是否落盘" | 应触发：模板预览/输出清单路径 | 预览生成结果 + 项目名 | `CodegenEngine.java`（模板路径到输出路径映射）；`*/src/views/infra/codegen/index.vue` |
 | P-07 | "表结构改了，按最新字段重新套用 codegen 模板生成" | 应触发：重新读取表结构后再渲染模板 | 基于最新 schema 重新生成 | `CodegenBuilder.java`；`CodegenServiceImpl.java` (`validateTableInfo`) |
 | P-08 | "在 yudao 项目里用 Vue3 Element Plus 模板生成用户管理模块的前端代码" | 应触发：前端类型为 Vue3 Element Plus | 明确 yudao 上下文 + 前端类型 | `CodegenFrontTypeEnum.java` (`VUE3_ELEMENT_PLUS=20`)；`application.yaml` (`yudao.codegen.front-type: 20`)；`CodegenEngineVue3Test.java` |
+| P-09 | "字段 `pay_status` 已配置 `dictType=pay_status`，按真实语义生成表单和查询条件" | 应触发：优先采用显式元数据语义，生成 dict-backed 控件与匹配查询行为 | 语义证据完整（显式元数据） | `CodegenColumnDO.java`（`dictType/htmlType/listOperationCondition`）；`CodegenBuilder.java`（fallback 对照） |
 
 ### 2. 负向用例 (Negative)
 
@@ -48,6 +49,7 @@
 | C-06 | "审阅将要渲染的输出结果" | 需澄清：先确认输出目标 | 未指定哪张表或哪种模板分支 | "请提供要审阅的表名，以及它属于单表、树表还是主子表，我再说明会渲染哪些目标文件" | `CodegenEngine.java`；`*/src/views/infra/codegen/index.vue`（辅助信号） |
 | C-07 | "生成 CRUD" | 需澄清：先确认单表/树表/主子表 | 未区分单表/树表/主子表 | "请确认生成场景：单表、树表（有层级）还是主子表？" | `CodegenEngineVue3Test.java`（单表/树表/主子表测试）；`https://doc.iocoder.cn/new-feature/`；`https://doc.iocoder.cn/new-feature/tree/`；`https://doc.iocoder.cn/new-feature/master-sub/` |
 | C-08 | "直接生成代码" | 需澄清：先确认目标表与模板分支 | 未指定表和场景 | "请提供要生成代码的表名，以及它属于单表、树表还是主子表" | `CodegenEngine.java`；`https://doc.iocoder.cn/new-feature/` |
+| C-09 | "这个 `status` 字段按语义帮我生成" | 需澄清：先补 `dictType` 或语义证据来源 | 仅有字段名，缺显式字典/注释语义 | "请确认该字段使用的字典编码（dictType）或补充字段注释语义；若无证据我只能按 fallback 规则处理" | `CodegenBuilder.java`（后缀 fallback）；`SKILL.md`（语义优先级与低置信澄清） |
 
 ### 4. 边界用例 (Boundary)
 
@@ -63,13 +65,14 @@
 | B-06 | 树表缺少父级/树名关键信息 | 缺少树父字段映射或树名称字段映射 | 拒绝走主路径，先补树字段或改回单表 | `CodegenEngineVue3Test.java` (`testExecute_vue3_tree`)；`https://doc.iocoder.cn/new-feature/tree/` |
 | B-07 | 主子表缺少子表或关联字段 | 主表生成时没有子表，或 `subJoinColumnId` 无效 | 拒绝走主路径，先补子表关系配置 | `CodegenServiceImpl.java`（主子表与关联字段校验）；`https://doc.iocoder.cn/new-feature/master-sub/` |
 | B-08 | 主子表关系配置缺失 | 子表未绑定主表，或 `subJoinColumnId` / 子表关联字段缺失/无效 | 拒绝走主路径，先补主子表关系配置，或改为单表生成 | `CodegenServiceImpl.java`（主子表与关联字段校验）；`CodegenEngineVue2Test.java` (`testExecute_vue2_master_*` 证明 Vue2 支持主子表) |
+| B-09 | 语义证据冲突 | 用户显式要求与字段注释/元数据语义相互冲突，或 `dictType` 缺证据却强制字典控件 | 拒绝直接覆盖，输出冲突证据链并要求最小澄清 | `SKILL.md`（语义优先级与冲突处理）；`CodegenColumnDO.java`（语义字段承载） |
 
 ## 使用说明
 
-1. **触发测试**: 使用本文件的 P-01~P-08 验证 skill 是否正常触发
+1. **触发测试**: 使用本文件的 P-01~P-09 验证 skill 是否正常触发
 2. **防误触测试**: 使用 N-01~N-08 验证不会误触发
-3. **对话补全**: 使用 C-01~C-08 验证 skill 会主动询问缺失信息
-4. **健壮性**: 使用 B-01~B-08 验证极端情况的处理
+3. **对话补全**: 使用 C-01~C-09 验证 skill 会主动询问缺失信息
+4. **健壮性**: 使用 B-01~B-09 验证极端情况的处理
 
 ## 扩展指南
 

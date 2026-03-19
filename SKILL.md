@@ -63,6 +63,7 @@ Before executing codegen workflow, verify ALL of the following:
 - [ ] **Template type** selected: `ONE(1)`, `TREE(2)`, `MASTER_NORMAL(10)`, `MASTER_ERP(11)`, `MASTER_INNER(12)`, or `SUB(15)`
 - [ ] **Front type** confirmed: defaults to `VUE3_ELEMENT_PLUS(20)` from `yudao.codegen.front-type` in `application.yaml`
 - [ ] **Parent menu ID** set (for UI navigation menu placement)
+- [ ] **Semantic evidence** collected (column comments + optional dict metadata + domain hints)
 - [ ] **Schema delta** checked: if incoming schema and current generation target have no effective delta, reject duplicate regeneration and switch to preview/reuse flow
 
 ### STOP Conditions - 停止生成 - Do NOT proceed if:
@@ -80,7 +81,7 @@ The standard template-driven codegen execution flow:
 ```
 [识别仓库信号] → [读取 codegen 模板目录与映射] → [检查 yudao.codegen / front-type] → [执行前置检查]
        ↓
-[收集表结构输入] → [推导默认值] → [选择模板分支] → [预览输出文件集合/路径] → [渲染模板] → [校验输出路径] → [落盘/整理]
+[收集表结构输入] → [语义推断与置信度门控] → [推导默认值] → [选择模板分支] → [预览输出文件集合/路径] → [渲染模板] → [校验输出路径] → [落盘/整理]
 ```
 
 #### Phase 1: Pre-execution Checks
@@ -133,7 +134,67 @@ buildColumns(tableId, tableFields)
 - If naming convention is too ambiguous to derive stable `moduleName` / `businessName`, stop and ask user
 - If tree/master-sub required fields are missing, stop and correct schema inputs first
 
-#### Phase 4: Preview Output Set (预览阶段)
+#### Phase 4: Semantic Inference Contract (字段真实语义推断)
+
+This phase determines semantic generation outputs for:
+- `htmlType`
+- `listOperationCondition`
+- `dictType`
+- `example`
+
+Keep a strict two-layer model:
+- **Physical layer (do not redefine in this skill update)**: `dataType` / `javaType` / `javaField`
+- **Semantic layer (this update focuses here)**: field meaning used to choose form/query UI behavior
+
+##### Semantic Evidence Priority (deterministic)
+
+Use evidence in this order; upper layer can override lower layer:
+
+1. **User explicit intent** (e.g. "this field is enum status, use radio + dict")
+2. **Explicit codegen metadata** (existing table/column config entries in codegen domain)
+3. **Column comment semantics** (business meaning in schema comments)
+4. **Field name semantics** (suffix/prefix lexical hints)
+5. **Builder fallback** (`CodegenBuilder.processColumnUI/processColumnOperation/processColumnExample`)
+
+Never skip to step 5 when steps 1-4 provide high-confidence evidence.
+
+##### Confidence Gate (must execute)
+
+- **High confidence**: apply inferred semantic values directly
+- **Medium confidence**: keep current value and output "needs confirmation" note in preview
+- **Low confidence**: stop generation path for that semantic decision and ask clarification before rendering
+
+Hard-stop semantics from this skill remain unchanged. Confidence gate adds a semantic safety layer; it does not weaken existing stop conditions.
+
+##### Semantic Mapping Constraints
+
+1. **`dictType` must be evidence-backed**
+   - Allowed when user intent / metadata / comment provides concrete dict domain
+   - Forbidden to fabricate dict identifiers from guesswork
+2. **`htmlType` must stay within target stack capabilities**
+   - Align with documented enum/template evidence of target repo
+   - If a template branch supports extra UI types but backend enum/config does not, treat as conflict and clarify before apply
+3. **`listOperationCondition` should be semantic-first**
+   - Prefer business semantics from comments/metadata
+   - Fall back to suffix heuristic (`name -> LIKE`, `time/date -> BETWEEN`, else `EQ`) only when semantic evidence is weak
+4. **`example` should reflect semantic intent**
+   - Prefer domain-realistic examples from comment/context
+   - If uncertain, keep conservative placeholder and request confirmation
+
+##### Semantic Conflict / Ambiguity Handling
+
+Stop and clarify when any of the following occurs:
+- Comment semantics conflict with explicit metadata
+- Dict-backed field semantics detected but no reliable `dictType` evidence
+- Requested `htmlType` conflicts with target `frontType`/template capability evidence
+- Multiple plausible semantics with no dominant confidence
+
+Output style for this branch:
+- Explicitly label: `语义证据不足` or `语义证据冲突`
+- List missing evidence items
+- Ask only the minimum required clarification to continue
+
+#### Phase 5: Preview Output Set (预览阶段)
 
 Before generation, preview the target output set and paths:
 
@@ -144,7 +205,7 @@ Before generation, preview the target output set and paths:
 
 If preview is valid, proceed to generation phase.
 
-#### Phase 5: Render Templates and Write Files (生成+落盘)
+#### Phase 6: Render Templates and Write Files (生成+落盘)
 
 **Generation engine**: `CodegenEngine.execute()`
 - Uses Velocity templates
@@ -222,6 +283,15 @@ ALTER TABLE your_table MODIFY COLUMN column_name data_type COMMENT 'Column descr
    - Reuse existing generated artifacts
    - Confirm whether a different template branch/front-type is intended
 
+#### Branch 6: Semantic Evidence Missing or Conflicting
+**Detection**: semantic decision for `htmlType` / `dictType` / `listOperationCondition` has low confidence or contradictory evidence
+
+**Action**:
+1. Stop applying that semantic override
+2. Surface evidence chain in priority order (intent → metadata → comment → name → fallback)
+3. Ask for minimum clarification (for example: dict domain, expected form control, expected query behavior)
+4. Resume only after clarification or explicit fallback acceptance
+
 ### Real Behavior Notes
 
 **From CodegenServiceImpl**:
@@ -237,6 +307,8 @@ ALTER TABLE your_table MODIFY COLUMN column_name data_type COMMENT 'Column descr
   - `*type` → `SELECT` HTML type
   - `*image` → `IMAGE_UPLOAD`, `*file` → `FILE_UPLOAD`
   - `*content`, `*description` → `EDITOR` HTML type
+
+These are fallback heuristics. Semantic evidence from comments/metadata/user intent should win when confidence is high.
 
 **From CodegenEngine**:
 - Renders file path → code content directly from template maps
@@ -387,13 +459,16 @@ Master-sub support caveats:
 - Use official docs for scenario specifics: `https://doc.iocoder.cn/new-feature/` (single table), `https://doc.iocoder.cn/new-feature/tree/` (tree table), `https://doc.iocoder.cn/new-feature/master-sub/` (master-sub table)
 - Check `application.yaml` for `yudao.codegen.*` defaults before advising configuration
 - Reference `CodegenTemplateTypeEnum` and `CodegenFrontTypeEnum` for template/front-type decisions
+- Apply semantic inference priority + confidence gate for `htmlType/listOperationCondition/dictType/example`
+- Preserve hard-stop discipline when semantic evidence is missing/conflicting
 
 **DON'T:**
 - Do NOT trigger for generic CRUD requests outside Yudao/RuoYi-Vue-Pro ecosystem
 - Do NOT provide template deep customization guidance (Velocity template structure changes are out of scope)
 - Do NOT advise on deployment, CI/CD pipeline, or actual database migration execution
 - Do NOT assume all CRUD/scaffold requests should use this skill—verify repository context first
-- Do NOT modify `examples/scenario-matrix.md` or create `evals/` files in this task
+- Do NOT fabricate `dictType` or undocumented `htmlType`
+- Do NOT bypass clarification when semantic confidence is low
 
 ## Validation references
 
